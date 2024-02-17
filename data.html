@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Log Viewer</title>
+</head>
+<body>
+    <div id="log"></div>
+    <script>
+        const logDiv = document.getElementById('log');
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/sensor`;
+
+        const ws = new WebSocket(wsUrl);
+        ws.onmessage = function(event) {
+            logDiv.textContent += '\n' + event.data;
+        };
+    </script>
+</body>
+</html>
