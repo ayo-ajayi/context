@@ -81,21 +81,10 @@ func addSensorData(ctx context.Context, mc *mongo.Collection, data *SensorData) 
 	return insertedId, nil
 }
 
-func getSensorData(ctx context.Context, mc *mongo.Collection, id string) (*SensorData, error) {
-	var data *SensorData
-	objId, err := primitive.ObjectIDFromHex(id)
-	if err != nil {
-		return nil, err
-	}
-	err = mc.FindOne(ctx, bson.M{"_id": objId}).Decode(&data)
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
+
 func getAllSensorData(ctx context.Context, mc *mongo.Collection) ([]*SensorData, error) {
 	var data []*SensorData
-	cursor, err := mc.Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "timestamp", Value: -1}}).SetLimit(100))
+	cursor, err := mc.Find(ctx, bson.M{}, options.Find().SetSort(bson.D{{Key: "timestamp", Value: 1}}).SetLimit(100))
 	if err != nil {
 		return nil, err
 	}
@@ -125,12 +114,7 @@ func broadcastAllSensorData(ctx context.Context, mc *mongo.Collection, ws *webso
 	return nil
 }
 
-func broadcastSensorData(ctx context.Context, mc *mongo.Collection, id string) error {
-	data, err := getSensorData(ctx, mc, id)
-	if err != nil {
-		logger.Error("error retrieving sensor data", zap.Error(err))
-		return err
-	}
+func broadcastSensorData(ctx context.Context, mc *mongo.Collection, data *SensorData) error {
 	lock.Lock()
 	defer lock.Unlock()
 	for _, ws := range clients {
@@ -147,13 +131,15 @@ func sendSensorData(ctx context.Context, mc *mongo.Collection, payload SensorDat
 	data := &SensorData{
 		Temperature: payload.Temperature,
 		Humidity:    payload.Humidity,
-		Timestamp:   time.Now(),
+		Timestamp:   time.Now().UTC(),
 	}
 	insertedId, err := addSensorData(ctx, mc, data)
 	if err != nil {
 		return InsertedId{}, err
 	}
-	if err := broadcastSensorData(ctx, mc, insertedId.Hex()); err != nil {
+	data.Id = insertedId
+
+	if err := broadcastSensorData(ctx, mc, data); err != nil {
 		return InsertedId{}, err
 	}
 	return InsertedId(insertedId), nil
